@@ -1,0 +1,14 @@
+<!--
+  ~ Copyright 2026 sylphinford
+  ~
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+<resources>
+    <style name="Theme.ImageVStax" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#FF6200EE</item>
+        <item name="colorPrimaryVariant">#FF3700B3</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#FF03DAC5</item>
+        <item name="colorOnSecondary">#FF000000</item>
+    </style>
+</resources>

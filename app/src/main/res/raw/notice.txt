@@ -1,0 +1,37 @@
+ImageVStax
+Copyright 2026 sylphinford
+
+This product includes software developed by the following third parties:
+
+1. AndroidX Core KTX (androidx.core:core-ktx:1.13.1)
+   Copyright (C) The Android Open Source Project
+   Licensed under the Apache License, Version 2.0
+   https://developer.android.com/jetpack/androidx/releases/core
+
+2. AndroidX AppCompat (androidx.appcompat:appcompat:1.7.0)
+   Copyright (C) The Android Open Source Project
+   Licensed under the Apache License, Version 2.0
+   https://developer.android.com/jetpack/androidx/releases/appcompat
+
+3. Material Components for Android (com.google.android.material:material:1.12.0)
+   Copyright (C) The Android Open Source Project
+   Licensed under the Apache License, Version 2.0
+   https://github.com/material-components/material-components-android
+
+4. AndroidX Activity KTX (androidx.activity:activity-ktx:1.9.3)
+   Copyright (C) The Android Open Source Project
+   Licensed under the Apache License, Version 2.0
+   https://developer.android.com/jetpack/androidx/releases/activity
+
+5. AndroidX RecyclerView (androidx.recyclerview:recyclerview:1.3.2)
+   Copyright (C) The Android Open Source Project
+   Licensed under the Apache License, Version 2.0
+   https://developer.android.com/jetpack/androidx/releases/recyclerview
+
+6. Kotlin Standard Library (org.jetbrains.kotlin:kotlin-stdlib:2.0.21)
+   Copyright (C) JetBrains s.r.o.
+   Licensed under the Apache License, Version 2.0
+   https://kotlinlang.org/
+
+All third-party libraries are distributed under the Apache License, Version 2.0.
+A copy of the Apache License is available in the LICENSE file.

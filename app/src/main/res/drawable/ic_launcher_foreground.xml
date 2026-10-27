@@ -1,0 +1,19 @@
+<!--
+  ~ Copyright 2026 sylphinford
+  ~
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Layer icon: stacked images -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,28 L68,28 A4,4 0 0 1 72,32 L72,60 A4,4 0 0 1 68,64 L30,64 A4,4 0 0 1 26,60 L26,32 A4,4 0 0 1 30,28 Z M34,36 L34,56 L64,56 L64,36 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.6"
+        android:pathData="M38,44 L74,44 A4,4 0 0 1 78,48 L78,76 A4,4 0 0 1 74,80 L38,80 A4,4 0 0 1 34,76 L34,48 A4,4 0 0 1 38,44 Z M42,52 L42,72 L70,72 L70,52 Z" />
+</vector>
