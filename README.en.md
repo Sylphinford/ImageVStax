@@ -14,6 +14,8 @@ An Android app for stitching images together — horizontally, vertically, or in
   - **Grid** — arrange images in a configurable column grid
 - **Image management** — reorder (move up/down), remove individual images
 - **Gap control** — adjustable spacing between images (0–50 px)
+- **Compact parameter bar** — gap / height / width / columns / quality each get one button showing its current value; tap to adjust with a slider
+- **Remembers your settings** — stitch mode, output format and all parameters are saved automatically and restored next launch
 - **Output format** — choose **JPG** (smallest), **PNG** (lossless, keeps transparency), or **WEBP** (best size-to-quality ratio) when saving or sharing; JPG / WEBP quality is adjustable (60–100)
 - **Save** stitched result to gallery (`Pictures/ImageVStax`)
 - **Share** stitched result to other apps via FileProvider

@@ -28,6 +28,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -39,6 +45,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RawRes
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -69,18 +76,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnHorizontal: MaterialButton
     private lateinit var btnVertical: MaterialButton
     private lateinit var btnGrid: MaterialButton
-    private lateinit var gridControls: LinearLayout
-    private lateinit var sliderColumns: Slider
-    private lateinit var sliderGap: Slider
     private lateinit var toggleFormat: MaterialButtonToggleGroup
     private lateinit var btnFormatJpg: MaterialButton
     private lateinit var btnFormatPng: MaterialButton
     private lateinit var btnFormatWebp: MaterialButton
 
-    // 编码质量控件（仅 JPG / WEBP 有损格式显示）
-    private lateinit var qualityControls: LinearLayout
-    private lateinit var tvQualityValue: TextView
-    private lateinit var sliderQuality: Slider
+    // 参数行：每个参数一个按钮，按钮内显示「标签 + 当前值」，点击弹出滑条对话框
+    private lateinit var btnParamColumns: MaterialButton
+    private lateinit var btnParamGap: MaterialButton
+    private lateinit var btnParamHeight: MaterialButton
+    private lateinit var btnParamWidth: MaterialButton
+    private lateinit var btnParamQuality: MaterialButton
 
     private lateinit var btnStitch: MaterialButton
     private lateinit var ivResult: ImageView
@@ -88,29 +94,23 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSave: MaterialButton
     private lateinit var btnShare: MaterialButton
 
-    // 水平拼接自定义高度控件
-    private lateinit var heightControls: LinearLayout
-    private lateinit var tvHeightValue: TextView
-    private lateinit var sliderHeight: Slider
-    private lateinit var btnResetHeight: MaterialButton
-
-    // 垂直拼接自定义宽度控件
-    private lateinit var widthControls: LinearLayout
-    private lateinit var tvWidthValue: TextView
-    private lateinit var sliderWidth: Slider
-    private lateinit var btnResetWidth: MaterialButton
-
     private lateinit var adapter: ImageListAdapter
 
     private val imageUris = mutableListOf<Uri>()
     private var resultBitmap: Bitmap? = null
-    private var stitchMode = StitchEngine.Mode.HORIZONTAL
 
-    // 输出格式只影响保存/分享时的编码，切换后无需重新拼接
-    private var outputFormat = OutputFormat.PNG
+    // 拼接参数、输出格式与质量统一存在 AppSettings 里，改动即落盘，下次启动自动恢复
+    private lateinit var settings: AppSettings
 
-    // 编码质量，仅对 JPG / WEBP 生效
-    private var outputQuality = 95
+    /** 主题主色，用于给按钮里的「当前值」上色；随主题（浅色/深色）解析一次即可。 */
+    private val accentColor: Int by lazy {
+        val typed = TypedValue()
+        if (theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, typed, true)) {
+            if (typed.resourceId != 0) ContextCompat.getColor(this, typed.resourceId) else typed.data
+        } else {
+            Color.GRAY
+        }
+    }
 
     private val pickImagesLauncher = registerForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
@@ -134,6 +134,7 @@ class MainActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_main)
 
+        settings = AppSettings(this)
         bindViews()
         setupAdapter()
         setupListeners()
@@ -262,44 +263,42 @@ class MainActivity : AppCompatActivity() {
         btnHorizontal = findViewById(R.id.btnHorizontal)
         btnVertical = findViewById(R.id.btnVertical)
         btnGrid = findViewById(R.id.btnGrid)
-        gridControls = findViewById(R.id.gridControls)
-        sliderColumns = findViewById(R.id.sliderColumns)
-        sliderGap = findViewById(R.id.sliderGap)
         toggleFormat = findViewById(R.id.toggleFormat)
         btnFormatJpg = findViewById(R.id.btnFormatJpg)
         btnFormatPng = findViewById(R.id.btnFormatPng)
         btnFormatWebp = findViewById(R.id.btnFormatWebp)
-        qualityControls = findViewById(R.id.qualityControls)
-        tvQualityValue = findViewById(R.id.tvQualityValue)
-        sliderQuality = findViewById(R.id.sliderQuality)
+
+        btnParamColumns = findViewById(R.id.btnParamColumns)
+        btnParamGap = findViewById(R.id.btnParamGap)
+        btnParamHeight = findViewById(R.id.btnParamHeight)
+        btnParamWidth = findViewById(R.id.btnParamWidth)
+        btnParamQuality = findViewById(R.id.btnParamQuality)
+
         btnStitch = findViewById(R.id.btnStitch)
         ivResult = findViewById(R.id.ivResult)
         resultActions = findViewById(R.id.resultActions)
         btnSave = findViewById(R.id.btnSave)
         btnShare = findViewById(R.id.btnShare)
 
-        // 自定义高度控件
-        heightControls = findViewById(R.id.heightControls)
-        tvHeightValue = findViewById(R.id.tvHeightValue)
-        sliderHeight = findViewById(R.id.sliderHeight)
-        btnResetHeight = findViewById(R.id.btnResetHeight)
-
-        // 自定义宽度控件
-        widthControls = findViewById(R.id.widthControls)
-        tvWidthValue = findViewById(R.id.tvWidthValue)
-        sliderWidth = findViewById(R.id.sliderWidth)
-        btnResetWidth = findViewById(R.id.btnResetWidth)
-
         setSupportActionBar(toolbar)
         // Toolbar 背景是 colorPrimary（紫色），溢出菜单三点图标默认取
         // colorControlNormal，在浅色主题下会偏暗，统一染成白色保证可见。
         toolbar.overflowIcon?.setTint(Color.WHITE)
-        btnHorizontal.isChecked = true
-        btnFormatPng.isChecked = true
 
-        updateHeightLabel()
-        updateWidthLabel()
-        updateQualityLabel()
+        // 恢复上次使用的模式与输出格式。此处监听器尚未挂载，不会触发回调。
+        when (settings.stitchMode) {
+            StitchEngine.Mode.VERTICAL -> btnVertical.isChecked = true
+            StitchEngine.Mode.GRID -> btnGrid.isChecked = true
+            StitchEngine.Mode.HORIZONTAL -> btnHorizontal.isChecked = true
+        }
+        when (settings.outputFormat) {
+            OutputFormat.JPG -> btnFormatJpg.isChecked = true
+            OutputFormat.WEBP -> btnFormatWebp.isChecked = true
+            OutputFormat.PNG -> btnFormatPng.isChecked = true
+        }
+
+        updateParamLabels()
+        updateParamVisibility()
     }
 
     private fun setupAdapter() {
@@ -331,51 +330,83 @@ class MainActivity : AppCompatActivity() {
 
         toggleMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
-            stitchMode = when (checkedId) {
-                R.id.btnHorizontal -> StitchEngine.Mode.HORIZONTAL
+            settings.stitchMode = when (checkedId) {
                 R.id.btnVertical -> StitchEngine.Mode.VERTICAL
                 R.id.btnGrid -> StitchEngine.Mode.GRID
                 else -> StitchEngine.Mode.HORIZONTAL
             }
-            // 根据模式显示/隐藏对应控件
-            heightControls.visibility = if (stitchMode == StitchEngine.Mode.HORIZONTAL) View.VISIBLE else View.GONE
-            widthControls.visibility = if (stitchMode == StitchEngine.Mode.VERTICAL) View.VISIBLE else View.GONE
-            gridControls.visibility = if (stitchMode == StitchEngine.Mode.GRID) View.VISIBLE else View.GONE
+            // 参数行里只保留当前模式用得上的按钮
+            updateParamVisibility()
         }
 
         // 输出格式选择
         toggleFormat.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
-            outputFormat = when (checkedId) {
+            settings.outputFormat = when (checkedId) {
                 R.id.btnFormatJpg -> OutputFormat.JPG
                 R.id.btnFormatWebp -> OutputFormat.WEBP
                 else -> OutputFormat.PNG
             }
-            // PNG 无损，质量参数无意义，隐藏滑块避免误解
-            qualityControls.visibility = if (outputFormat.isLossy) View.VISIBLE else View.GONE
+            // PNG 无损，质量参数无意义，隐藏对应按钮避免误解
+            updateParamVisibility()
         }
 
-        sliderQuality.addOnChangeListener { _, value, _ ->
-            outputQuality = value.toInt()
-            updateQualityLabel()
+        // 参数按钮：点击弹出带滑条的浮窗，确定后写入 AppSettings 并刷新按钮文案
+        btnParamColumns.setOnClickListener {
+            showValueDialog(
+                title = getString(R.string.columns),
+                valueFrom = AppSettings.COLUMNS_MIN,
+                valueTo = AppSettings.COLUMNS_MAX,
+                initial = settings.gridColumns,
+                formatter = { it.toString() },
+                onConfirm = { settings.gridColumns = it; updateParamLabels() },
+            )
         }
 
-        // 自定义高度 Slider
-        sliderHeight.addOnChangeListener { _, value, _ ->
-            updateHeightLabel()
-        }
-        btnResetHeight.setOnClickListener {
-            sliderHeight.value = 0f
-            updateHeightLabel()
+        btnParamGap.setOnClickListener {
+            showValueDialog(
+                title = getString(R.string.gap),
+                valueFrom = AppSettings.GAP_MIN,
+                valueTo = AppSettings.GAP_MAX,
+                initial = settings.gapPx,
+                formatter = { getString(R.string.value_px, it) },
+                onConfirm = { settings.gapPx = it; updateParamLabels() },
+            )
         }
 
-        // 自定义宽度 Slider
-        sliderWidth.addOnChangeListener { _, value, _ ->
-            updateWidthLabel()
+        btnParamHeight.setOnClickListener {
+            showValueDialog(
+                title = getString(R.string.height),
+                valueFrom = 0,
+                valueTo = AppSettings.SIZE_MAX,
+                initial = settings.customHeight,
+                formatter = { formatAutoOrPx(it) },
+                onConfirm = { settings.customHeight = it; updateParamLabels() },
+                onReset = { settings.customHeight = 0; updateParamLabels() },
+            )
         }
-        btnResetWidth.setOnClickListener {
-            sliderWidth.value = 0f
-            updateWidthLabel()
+
+        btnParamWidth.setOnClickListener {
+            showValueDialog(
+                title = getString(R.string.width),
+                valueFrom = 0,
+                valueTo = AppSettings.SIZE_MAX,
+                initial = settings.customWidth,
+                formatter = { formatAutoOrPx(it) },
+                onConfirm = { settings.customWidth = it; updateParamLabels() },
+                onReset = { settings.customWidth = 0; updateParamLabels() },
+            )
+        }
+
+        btnParamQuality.setOnClickListener {
+            showValueDialog(
+                title = getString(R.string.quality),
+                valueFrom = AppSettings.QUALITY_MIN,
+                valueTo = AppSettings.QUALITY_MAX,
+                initial = settings.outputQuality,
+                formatter = { it.toString() },
+                onConfirm = { settings.outputQuality = it; updateParamLabels() },
+            )
         }
 
         btnStitch.setOnClickListener {
@@ -385,8 +416,8 @@ class MainActivity : AppCompatActivity() {
         btnSave.setOnClickListener {
             resultBitmap?.let { bmp ->
                 // 编码在 IO 线程进行，先固化当前选择的格式与质量，避免过程中被改动
-                val format = outputFormat
-                val quality = outputQuality
+                val format = settings.outputFormat
+                val quality = settings.outputQuality
                 lifecycleScope.launch {
                     val saved = withContext(Dispatchers.IO) { saveToGallery(bmp, format, quality) }
                     runOnUiThread {
@@ -403,8 +434,8 @@ class MainActivity : AppCompatActivity() {
 
         btnShare.setOnClickListener {
             resultBitmap?.let { bmp ->
-                val format = outputFormat
-                val quality = outputQuality
+                val format = settings.outputFormat
+                val quality = settings.outputQuality
                 lifecycleScope.launch {
                     val uri = withContext(Dispatchers.IO) { saveToCache(bmp, format, quality) }
                     if (uri != null) {
@@ -413,25 +444,116 @@ class MainActivity : AppCompatActivity() {
                             putExtra(Intent.EXTRA_STREAM, uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        startActivity(Intent.createChooser(shareIntent, "分享图片"))
+                        startActivity(
+                            Intent.createChooser(shareIntent, getString(R.string.share_image))
+                        )
                     }
                 }
             }
         }
     }
 
-    private fun updateHeightLabel() {
-        val h = sliderHeight.value.toInt()
-        tvHeightValue.text = if (h == 0) "自动" else "${h}px"
+    /** 0 显示为「自动」，其余显示为「Npx」。 */
+    private fun formatAutoOrPx(value: Int): String =
+        if (value <= 0) getString(R.string.auto) else getString(R.string.value_px, value)
+
+    /**
+     * 参数按钮文案：标签用常规字重，当前值加粗并取主题主色，
+     * 这样一眼能看出哪个是当前值。
+     */
+    private fun setParamLabel(button: MaterialButton, labelRes: Int, value: String) {
+        val label = getString(labelRes)
+        val text = SpannableStringBuilder(label).append(' ').append(value)
+        val start = label.length + 1
+        text.setSpan(
+            StyleSpan(Typeface.BOLD), start, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        text.setSpan(
+            ForegroundColorSpan(accentColor), start, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        button.text = text
     }
 
-    private fun updateWidthLabel() {
-        val w = sliderWidth.value.toInt()
-        tvWidthValue.text = if (w == 0) "自动" else "${w}px"
+    private fun updateParamLabels() {
+        setParamLabel(btnParamColumns, R.string.columns, settings.gridColumns.toString())
+        setParamLabel(btnParamGap, R.string.gap, getString(R.string.value_px, settings.gapPx))
+        setParamLabel(btnParamHeight, R.string.height, formatAutoOrPx(settings.customHeight))
+        setParamLabel(btnParamWidth, R.string.width, formatAutoOrPx(settings.customWidth))
+        setParamLabel(btnParamQuality, R.string.quality, settings.outputQuality.toString())
     }
 
-    private fun updateQualityLabel() {
-        tvQualityValue.text = outputQuality.toString()
+    /** 按当前拼接模式与输出格式决定参数行里哪些按钮可见。 */
+    private fun updateParamVisibility() {
+        btnParamColumns.visibility =
+            if (settings.stitchMode == StitchEngine.Mode.GRID) View.VISIBLE else View.GONE
+        btnParamHeight.visibility =
+            if (settings.stitchMode == StitchEngine.Mode.HORIZONTAL) View.VISIBLE else View.GONE
+        btnParamWidth.visibility =
+            if (settings.stitchMode == StitchEngine.Mode.VERTICAL) View.VISIBLE else View.GONE
+        btnParamQuality.visibility =
+            if (settings.outputFormat.isLossy) View.VISIBLE else View.GONE
+        // 间距三种模式都适用
+        btnParamGap.visibility = View.VISIBLE
+    }
+
+    /**
+     * 通用数值设置浮窗：标题 + 当前值预览 + 滑条。
+     *
+     * 拖动滑条只改浮窗内的预览文字，点「确定」才写回真实值，
+     * 点「取消」保持原值不变。[onReset] 非空时额外提供一个重置按钮（如「自动」）。
+     */
+    private fun showValueDialog(
+        title: String,
+        valueFrom: Int,
+        valueTo: Int,
+        initial: Int,
+        formatter: (Int) -> String,
+        onConfirm: (Int) -> Unit,
+        onReset: (() -> Unit)? = null,
+    ) {
+        val density = resources.displayMetrics.density
+        val padH = (24 * density).toInt()
+        val padTop = (8 * density).toInt()
+        val gap = (8 * density).toInt()
+
+        val preview = TextView(this).apply {
+            text = formatter(initial)
+            textSize = 20f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(accentColor)
+            gravity = Gravity.CENTER
+        }
+
+        val slider = Slider(this).apply {
+            // 必须先设 valueTo 再设 valueFrom，否则 valueFrom >= 默认 valueTo 会抛异常
+            this.valueTo = valueTo.toFloat()
+            this.valueFrom = valueFrom.toFloat()
+            stepSize = 1f
+            value = initial.coerceIn(valueFrom, valueTo).toFloat()
+            addOnChangeListener { _, v, _ -> preview.text = formatter(v.toInt()) }
+        }
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padH, padTop, padH, 0)
+            addView(preview, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ))
+            addView(slider, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = gap })
+        }
+
+        val builder = MaterialAlertDialogBuilder(this)
+            .setTitle(title)
+            .setView(container)
+            .setPositiveButton(R.string.ok) { _, _ -> onConfirm(slider.value.toInt()) }
+            .setNegativeButton(R.string.cancel, null)
+
+        if (onReset != null) {
+            builder.setNeutralButton(R.string.auto) { _, _ -> onReset() }
+        }
+        builder.show()
     }
 
     private fun handleSendIntent(intent: Intent?) {
@@ -497,12 +619,14 @@ class MainActivity : AppCompatActivity() {
     private fun performStitch() {
         if (imageUris.size < 2) return
 
-        val columns = sliderColumns.value.toInt()
-        val gap = sliderGap.value.toInt()
-        val customHeight = sliderHeight.value.toInt()  // 0 = 自动
-        val customWidth = sliderWidth.value.toInt()     // 0 = 自动
+        // 拼接在后台线程跑，先把参数固化成局部变量，避免过程中被改动
+        val mode = settings.stitchMode
+        val columns = settings.gridColumns
+        val gap = settings.gapPx
+        val height = settings.customHeight
+        val width = settings.customWidth
 
-        btnStitch.text = "拼接中..."
+        btnStitch.text = getString(R.string.stitch_running)
         btnStitch.isEnabled = false
 
         lifecycleScope.launch {
@@ -511,18 +635,18 @@ class MainActivity : AppCompatActivity() {
                     StitchEngine.stitch(
                         this@MainActivity,
                         imageUris,
-                        stitchMode,
+                        mode,
                         columns,
                         gap,
-                        customHeight,
-                        customWidth,
+                        height,
+                        width,
                     )
                 } catch (e: Exception) {
                     null
                 }
             }
 
-            btnStitch.text = "开始拼接"
+            btnStitch.text = getString(R.string.stitch_start)
             btnStitch.isEnabled = true
 
             if (result != null) {
@@ -530,7 +654,7 @@ class MainActivity : AppCompatActivity() {
                 ivResult.setImageBitmap(result.bitmap)
                 resultActions.visibility = View.VISIBLE
             } else {
-                Toast.makeText(this@MainActivity, "拼接失败，请检查图片", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, R.string.stitch_failed, Toast.LENGTH_SHORT).show()
             }
         }
     }

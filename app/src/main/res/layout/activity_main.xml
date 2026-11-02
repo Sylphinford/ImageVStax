@@ -130,92 +130,177 @@
                 app:cardCornerRadius="12dp"
                 app:cardElevation="2dp">
 
+                <!--
+                  三行紧凑排版，纵向空间固定：
+                  1. 拼接模式 —— 标签与三段按钮同排
+                  2. 参数行   —— 每个参数一个按钮，按钮内显示「标签 + 当前值」，点击弹窗调滑条
+                  3. 输出格式 —— 固定在最下行
+                -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="拼接模式"
-                        android:textStyle="bold"
-                        android:textSize="16sp" />
-
-                    <com.google.android.material.button.MaterialButtonToggleGroup
-                        android:id="@+id/toggleMode"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        app:singleSelection="true">
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnHorizontal"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_weight="1"
-                            android:layout_height="wrap_content"
-                            android:text="@string/stitch_horizontal" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnVertical"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_weight="1"
-                            android:layout_height="wrap_content"
-                            android:text="@string/stitch_vertical" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnGrid"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_weight="1"
-                            android:layout_height="wrap_content"
-                            android:text="@string/stitch_grid" />
-                    </com.google.android.material.button.MaterialButtonToggleGroup>
-
                     <LinearLayout
-                        android:id="@+id/gridControls"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:layout_marginTop="8dp"
-                        android:gravity="center_vertical"
-                        android:visibility="gone">
+                        android:gravity="center_vertical">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/columns" />
+                            android:text="@string/stitch_mode" />
 
-                        <com.google.android.material.slider.Slider
-                            android:id="@+id/sliderColumns"
+                        <com.google.android.material.button.MaterialButtonToggleGroup
+                            android:id="@+id/toggleMode"
                             android:layout_width="0dp"
                             android:layout_weight="1"
                             android:layout_height="wrap_content"
-                            android:valueFrom="2"
-                            android:valueTo="6"
-                            android:stepSize="1"
-                            android:value="2" />
+                            android:layout_marginStart="12dp"
+                            app:singleSelection="true">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnHorizontal"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:minWidth="0dp"
+                                android:paddingStart="4dp"
+                                android:paddingEnd="4dp"
+                                android:text="@string/stitch_horizontal"
+                                android:textSize="12sp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnVertical"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:minWidth="0dp"
+                                android:paddingStart="4dp"
+                                android:paddingEnd="4dp"
+                                android:text="@string/stitch_vertical"
+                                android:textSize="12sp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnGrid"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:minWidth="0dp"
+                                android:paddingStart="4dp"
+                                android:paddingEnd="4dp"
+                                android:text="@string/stitch_grid"
+                                android:textSize="12sp" />
+                        </com.google.android.material.button.MaterialButtonToggleGroup>
                     </LinearLayout>
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/gap" />
-
-                    <com.google.android.material.slider.Slider
-                        android:id="@+id/sliderGap"
+                    <!-- 参数行：可见性随拼接模式与输出格式动态调整 -->
+                    <LinearLayout
+                        android:id="@+id/paramRow"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:valueFrom="0"
-                        android:valueTo="50"
-                        android:stepSize="1"
-                        android:value="0" />
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
 
-                    <!-- 输出格式：标签与三段按钮同排，节省纵向空间 -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnParamColumns"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:minWidth="0dp"
+                            android:minHeight="0dp"
+                            android:paddingStart="4dp"
+                            android:paddingTop="8dp"
+                            android:paddingEnd="4dp"
+                            android:paddingBottom="8dp"
+                            android:text="@string/columns"
+                            android:textSize="12sp"
+                            android:visibility="gone" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnParamGap"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:minWidth="0dp"
+                            android:minHeight="0dp"
+                            android:paddingStart="4dp"
+                            android:paddingTop="8dp"
+                            android:paddingEnd="4dp"
+                            android:paddingBottom="8dp"
+                            android:text="@string/gap"
+                            android:textSize="12sp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnParamHeight"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:minWidth="0dp"
+                            android:minHeight="0dp"
+                            android:paddingStart="4dp"
+                            android:paddingTop="8dp"
+                            android:paddingEnd="4dp"
+                            android:paddingBottom="8dp"
+                            android:text="@string/height"
+                            android:textSize="12sp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnParamWidth"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:minWidth="0dp"
+                            android:minHeight="0dp"
+                            android:paddingStart="4dp"
+                            android:paddingTop="8dp"
+                            android:paddingEnd="4dp"
+                            android:paddingBottom="8dp"
+                            android:text="@string/width"
+                            android:textSize="12sp"
+                            android:visibility="gone" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnParamQuality"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:minWidth="0dp"
+                            android:minHeight="0dp"
+                            android:paddingStart="4dp"
+                            android:paddingTop="8dp"
+                            android:paddingEnd="4dp"
+                            android:paddingBottom="8dp"
+                            android:text="@string/quality"
+                            android:textSize="12sp"
+                            android:visibility="gone" />
+                    </LinearLayout>
+
+                    <!-- 输出格式：固定在最下行 -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -273,155 +358,6 @@
                                 android:textSize="12sp" />
                         </com.google.android.material.button.MaterialButtonToggleGroup>
                     </LinearLayout>
-
-                    <!-- 编码质量：仅 JPG / WEBP 这类有损格式需要，PNG 无损时隐藏 -->
-                    <LinearLayout
-                        android:id="@+id/qualityControls"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="vertical"
-                        android:visibility="gone">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/quality" />
-
-                            <TextView
-                                android:id="@+id/tvQualityValue"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:textColor="?attr/colorPrimary"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                        <com.google.android.material.slider.Slider
-                            android:id="@+id/sliderQuality"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:valueFrom="60"
-                            android:valueTo="100"
-                            android:stepSize="1"
-                            android:value="95" />
-                    </LinearLayout>
-
-                    <!-- 水平拼接自定义高度 -->
-                    <LinearLayout
-                        android:id="@+id/heightControls"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:layout_marginTop="8dp"
-                        android:visibility="visible">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="自定义高度" />
-
-                            <TextView
-                                android:id="@+id/tvHeightValue"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:textColor="?attr/colorPrimary"
-                                android:textStyle="bold" />
-
-                            <Space
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
-                                android:layout_height="1dp" />
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnResetHeight"
-                                style="@style/Widget.Material3.Button.TextButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:minWidth="0dp"
-                                android:minHeight="0dp"
-                                android:paddingTop="4dp"
-                                android:paddingBottom="4dp"
-                                android:text="自动高度" />
-                        </LinearLayout>
-
-                        <com.google.android.material.slider.Slider
-                            android:id="@+id/sliderHeight"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:valueFrom="0"
-                            android:valueTo="4096"
-                            android:stepSize="1"
-                            android:value="0" />
-                    </LinearLayout>
-
-                    <!-- 垂直拼接自定义宽度 -->
-                    <LinearLayout
-                        android:id="@+id/widthControls"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:layout_marginTop="8dp"
-                        android:visibility="gone">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="自定义宽度" />
-
-                            <TextView
-                                android:id="@+id/tvWidthValue"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:textColor="?attr/colorPrimary"
-                                android:textStyle="bold" />
-
-                            <Space
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
-                                android:layout_height="1dp" />
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnResetWidth"
-                                style="@style/Widget.Material3.Button.TextButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:minWidth="0dp"
-                                android:minHeight="0dp"
-                                android:paddingTop="4dp"
-                                android:paddingBottom="4dp"
-                                android:text="自动宽度" />
-                        </LinearLayout>
-
-                        <com.google.android.material.slider.Slider
-                            android:id="@+id/sliderWidth"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:valueFrom="0"
-                            android:valueTo="4096"
-                            android:stepSize="1"
-                            android:value="0" />
-                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -430,7 +366,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:text="开始拼接"
+                android:text="@string/stitch_start"
                 android:enabled="false" />
 
             <LinearLayout
