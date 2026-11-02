@@ -19,6 +19,7 @@
 package io.github.sylphinford.imagevstax
 
 import android.content.ContentValues
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -71,6 +72,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var gridControls: LinearLayout
     private lateinit var sliderColumns: Slider
     private lateinit var sliderGap: Slider
+    private lateinit var toggleFormat: MaterialButtonToggleGroup
+    private lateinit var btnFormatJpg: MaterialButton
+    private lateinit var btnFormatPng: MaterialButton
+    private lateinit var btnFormatWebp: MaterialButton
+
+    // 编码质量控件（仅 JPG / WEBP 有损格式显示）
+    private lateinit var qualityControls: LinearLayout
+    private lateinit var tvQualityValue: TextView
+    private lateinit var sliderQuality: Slider
+
     private lateinit var btnStitch: MaterialButton
     private lateinit var ivResult: ImageView
     private lateinit var resultActions: LinearLayout
@@ -94,6 +105,12 @@ class MainActivity : AppCompatActivity() {
     private val imageUris = mutableListOf<Uri>()
     private var resultBitmap: Bitmap? = null
     private var stitchMode = StitchEngine.Mode.HORIZONTAL
+
+    // 输出格式只影响保存/分享时的编码，切换后无需重新拼接
+    private var outputFormat = OutputFormat.PNG
+
+    // 编码质量，仅对 JPG / WEBP 生效
+    private var outputQuality = 95
 
     private val pickImagesLauncher = registerForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
@@ -248,6 +265,13 @@ class MainActivity : AppCompatActivity() {
         gridControls = findViewById(R.id.gridControls)
         sliderColumns = findViewById(R.id.sliderColumns)
         sliderGap = findViewById(R.id.sliderGap)
+        toggleFormat = findViewById(R.id.toggleFormat)
+        btnFormatJpg = findViewById(R.id.btnFormatJpg)
+        btnFormatPng = findViewById(R.id.btnFormatPng)
+        btnFormatWebp = findViewById(R.id.btnFormatWebp)
+        qualityControls = findViewById(R.id.qualityControls)
+        tvQualityValue = findViewById(R.id.tvQualityValue)
+        sliderQuality = findViewById(R.id.sliderQuality)
         btnStitch = findViewById(R.id.btnStitch)
         ivResult = findViewById(R.id.ivResult)
         resultActions = findViewById(R.id.resultActions)
@@ -271,9 +295,11 @@ class MainActivity : AppCompatActivity() {
         // colorControlNormal，在浅色主题下会偏暗，统一染成白色保证可见。
         toolbar.overflowIcon?.setTint(Color.WHITE)
         btnHorizontal.isChecked = true
+        btnFormatPng.isChecked = true
 
         updateHeightLabel()
         updateWidthLabel()
+        updateQualityLabel()
     }
 
     private fun setupAdapter() {
@@ -289,7 +315,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         btnAdd.setOnClickListener {
-            pickImagesLauncher.launch(arrayOf("image/*"))
+            try {
+                pickImagesLauncher.launch(arrayOf("image/*"))
+            } catch (e: ActivityNotFoundException) {
+                // 精简系统或定制 ROM 可能没有系统文档选择器，避免直接崩溃
+                Toast.makeText(this, R.string.no_file_picker, Toast.LENGTH_SHORT).show()
+            }
         }
 
         btnClear.setOnClickListener {
@@ -310,6 +341,23 @@ class MainActivity : AppCompatActivity() {
             heightControls.visibility = if (stitchMode == StitchEngine.Mode.HORIZONTAL) View.VISIBLE else View.GONE
             widthControls.visibility = if (stitchMode == StitchEngine.Mode.VERTICAL) View.VISIBLE else View.GONE
             gridControls.visibility = if (stitchMode == StitchEngine.Mode.GRID) View.VISIBLE else View.GONE
+        }
+
+        // 输出格式选择
+        toggleFormat.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            outputFormat = when (checkedId) {
+                R.id.btnFormatJpg -> OutputFormat.JPG
+                R.id.btnFormatWebp -> OutputFormat.WEBP
+                else -> OutputFormat.PNG
+            }
+            // PNG 无损，质量参数无意义，隐藏滑块避免误解
+            qualityControls.visibility = if (outputFormat.isLossy) View.VISIBLE else View.GONE
+        }
+
+        sliderQuality.addOnChangeListener { _, value, _ ->
+            outputQuality = value.toInt()
+            updateQualityLabel()
         }
 
         // 自定义高度 Slider
@@ -336,11 +384,18 @@ class MainActivity : AppCompatActivity() {
 
         btnSave.setOnClickListener {
             resultBitmap?.let { bmp ->
+                // 编码在 IO 线程进行，先固化当前选择的格式与质量，避免过程中被改动
+                val format = outputFormat
+                val quality = outputQuality
                 lifecycleScope.launch {
-                    val saved = withContext(Dispatchers.IO) { saveToGallery(bmp) }
+                    val saved = withContext(Dispatchers.IO) { saveToGallery(bmp, format, quality) }
                     runOnUiThread {
-                        if (saved) Toast.makeText(this@MainActivity, getString(R.string.saved_to), Toast.LENGTH_SHORT).show()
-                        else Toast.makeText(this@MainActivity, "保存失败", Toast.LENGTH_SHORT).show()
+                        val msg = if (saved) {
+                            getString(R.string.saved_to_format, format.displayName)
+                        } else {
+                            getString(R.string.save_failed)
+                        }
+                        Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -348,11 +403,13 @@ class MainActivity : AppCompatActivity() {
 
         btnShare.setOnClickListener {
             resultBitmap?.let { bmp ->
+                val format = outputFormat
+                val quality = outputQuality
                 lifecycleScope.launch {
-                    val uri = withContext(Dispatchers.IO) { saveToCache(bmp) }
+                    val uri = withContext(Dispatchers.IO) { saveToCache(bmp, format, quality) }
                     if (uri != null) {
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "image/png"
+                            type = format.mimeType
                             putExtra(Intent.EXTRA_STREAM, uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
@@ -371,6 +428,10 @@ class MainActivity : AppCompatActivity() {
     private fun updateWidthLabel() {
         val w = sliderWidth.value.toInt()
         tvWidthValue.text = if (w == 0) "自动" else "${w}px"
+    }
+
+    private fun updateQualityLabel() {
+        tvQualityValue.text = outputQuality.toString()
     }
 
     private fun handleSendIntent(intent: Intent?) {
@@ -474,12 +535,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveToGallery(bitmap: Bitmap): Boolean {
+    /**
+     * 按指定格式保存到相册 `Pictures/ImageVStax`。
+     * 编码失败时删掉刚插入的 MediaStore 记录，避免相册里留下 0 字节的空条目。
+     */
+    private fun saveToGallery(bitmap: Bitmap, format: OutputFormat, quality: Int): Boolean {
         val resolver = contentResolver
         val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val contentValues = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "ImageVStax_${System.currentTimeMillis()}.png")
-            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.DISPLAY_NAME, ImageExporter.buildFileName(format))
+            put(MediaStore.Images.Media.MIME_TYPE, format.mimeType)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/ImageVStax")
                 put(MediaStore.Images.Media.IS_PENDING, 1)
@@ -487,27 +552,36 @@ class MainActivity : AppCompatActivity() {
         }
 
         val uri = resolver.insert(collection, contentValues) ?: return false
-        return try {
+
+        val encoded = try {
             resolver.openOutputStream(uri)?.use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                contentValues.clear()
-                contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
-                resolver.update(uri, contentValues, null, null)
-            }
-            true
+                ImageExporter.encode(bitmap, format, out, quality)
+            } ?: false
         } catch (e: Exception) {
             false
         }
+
+        if (!encoded) {
+            runCatching { resolver.delete(uri, null, null) }
+            return false
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            contentValues.clear()
+            contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
+            resolver.update(uri, contentValues, null, null)
+        }
+        return true
     }
 
-    private fun saveToCache(bitmap: Bitmap): Uri? {
+    /** 按指定格式写入缓存目录，供分享使用。 */
+    private fun saveToCache(bitmap: Bitmap, format: OutputFormat, quality: Int): Uri? {
         return try {
-            val file = File(cacheDir, "ImageVStax_share.png")
-            FileOutputStream(file).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            val file = File(cacheDir, "ImageVStax_share.${format.extension}")
+            val encoded = FileOutputStream(file).use { out ->
+                ImageExporter.encode(bitmap, format, out, quality)
             }
+            if (!encoded) return null
             FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         } catch (e: Exception) {
             null

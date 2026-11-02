@@ -16,9 +16,18 @@
     <string name="move_up">上移</string>
     <string name="move_down">下移</string>
     <string name="remove">移除</string>
-    <string name="saved_to">已保存到相册</string>
+    <string name="saved_to_format">已保存到相册（%1$s）</string>
+    <string name="save_failed">保存失败</string>
+    <string name="no_file_picker">未找到可用的文件选择器</string>
     <string name="columns">列数</string>
     <string name="gap">间距</string>
+
+    <!-- 输出格式 -->
+    <string name="output_format">输出格式</string>
+    <string name="format_jpg">JPG</string>
+    <string name="format_png">PNG</string>
+    <string name="format_webp">WEBP</string>
+    <string name="quality">质量</string>
 
     <!-- 关于 / 开源许可 -->
     <string name="about">关于</string>

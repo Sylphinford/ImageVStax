@@ -14,6 +14,7 @@
   - **网格** —— 按可配置的列数排成网格
 - **图片管理** —— 调整顺序（上移 / 下移）、移除单张图片
 - **间距调节** —— 图片之间的空隙可调（0–50 px）
+- **输出格式** —— 保存与分享时可选择 **JPG**（体积最小）、**PNG**（无损、支持透明）或 **WEBP**（体积与画质兼顾）；JPG / WEBP 可调质量（60–100）
 - **保存** 拼接结果到相册（`Pictures/ImageVStax`）
 - **分享** 拼接结果到其他应用（通过 FileProvider）
 
@@ -57,6 +58,8 @@ keyPassword=******
 │       ├── java/io/github/sylphinford/imagevstax/
 │       │   ├── MainActivity.kt         # 主界面、选图、分享接收、关于对话框
 │       │   ├── StitchEngine.kt         # 拼接核心逻辑
+│       │   ├── OutputFormat.kt         # 输出格式定义（JPG / PNG / WEBP）
+│       │   ├── ImageExporter.kt        # 按格式编码落盘（JPEG 白底合成）
 │       │   └── ImageListAdapter.kt     # 图片列表的 RecyclerView 适配器
 │       ├── res/
 │       │   ├── layout/                 # 布局 XML

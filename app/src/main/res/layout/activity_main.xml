@@ -215,6 +215,104 @@
                         android:stepSize="1"
                         android:value="0" />
 
+                    <!-- 输出格式：标签与三段按钮同排，节省纵向空间 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/output_format" />
+
+                        <com.google.android.material.button.MaterialButtonToggleGroup
+                            android:id="@+id/toggleFormat"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            app:singleSelection="true">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnFormatJpg"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:minWidth="0dp"
+                                android:paddingStart="4dp"
+                                android:paddingEnd="4dp"
+                                android:text="@string/format_jpg"
+                                android:textSize="12sp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnFormatPng"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:minWidth="0dp"
+                                android:paddingStart="4dp"
+                                android:paddingEnd="4dp"
+                                android:text="@string/format_png"
+                                android:textSize="12sp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnFormatWebp"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:minWidth="0dp"
+                                android:paddingStart="4dp"
+                                android:paddingEnd="4dp"
+                                android:text="@string/format_webp"
+                                android:textSize="12sp" />
+                        </com.google.android.material.button.MaterialButtonToggleGroup>
+                    </LinearLayout>
+
+                    <!-- 编码质量：仅 JPG / WEBP 这类有损格式需要，PNG 无损时隐藏 -->
+                    <LinearLayout
+                        android:id="@+id/qualityControls"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/quality" />
+
+                            <TextView
+                                android:id="@+id/tvQualityValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:textColor="?attr/colorPrimary"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <com.google.android.material.slider.Slider
+                            android:id="@+id/sliderQuality"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:valueFrom="60"
+                            android:valueTo="100"
+                            android:stepSize="1"
+                            android:value="95" />
+                    </LinearLayout>
+
                     <!-- 水平拼接自定义高度 -->
                     <LinearLayout
                         android:id="@+id/heightControls"

@@ -14,6 +14,7 @@ An Android app for stitching images together — horizontally, vertically, or in
   - **Grid** — arrange images in a configurable column grid
 - **Image management** — reorder (move up/down), remove individual images
 - **Gap control** — adjustable spacing between images (0–50 px)
+- **Output format** — choose **JPG** (smallest), **PNG** (lossless, keeps transparency), or **WEBP** (best size-to-quality ratio) when saving or sharing; JPG / WEBP quality is adjustable (60–100)
 - **Save** stitched result to gallery (`Pictures/ImageVStax`)
 - **Share** stitched result to other apps via FileProvider
 
@@ -58,6 +59,8 @@ produces an unsigned APK.
 │       ├── java/io/github/sylphinford/imagevstax/
 │       │   ├── MainActivity.kt         # Main UI, image picker, share receiver, About dialog
 │       │   ├── StitchEngine.kt         # Core stitching logic
+│       │   ├── OutputFormat.kt         # Output format definitions (JPG / PNG / WEBP)
+│       │   ├── ImageExporter.kt        # Format-aware encoding (white flatten for JPEG)
 │       │   └── ImageListAdapter.kt     # RecyclerView adapter for image list
 │       ├── res/
 │       │   ├── layout/                 # XML layouts
