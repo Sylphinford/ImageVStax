@@ -9,6 +9,7 @@
     <string name="stitch_horizontal">水平拼接</string>
     <string name="stitch_vertical">垂直拼接</string>
     <string name="stitch_grid">网格拼接</string>
+    <string name="stitch_subtitle">字幕拼接</string>
     <string name="save">保存</string>
     <string name="share">分享</string>
     <string name="no_images">还没有图片，点击下方按钮或从文件管理器分享图片</string>
@@ -41,6 +42,15 @@
     <string name="format_png">PNG</string>
     <string name="format_webp">WEBP</string>
     <string name="quality">质量</string>
+
+    <!-- 字幕模式裁切 -->
+    <string name="crop">裁切</string>
+    <string name="crop_start">裁切起点</string>
+    <string name="crop_height">裁切高度</string>
+    <string name="crop_value">%1$d%%+%2$d%%</string>
+    <string name="crop_summary">%1$d%% – %2$d%%</string>
+    <string name="crop_hint">第 1 张完整显示，第 2 张起裁取同一段字幕区域。宽度为「自动」时以第 1 张的宽度为准。</string>
+    <string name="crop_preview_loading">正在生成预览…</string>
 
     <!-- 关于 / 开源许可 -->
     <string name="about">关于</string>

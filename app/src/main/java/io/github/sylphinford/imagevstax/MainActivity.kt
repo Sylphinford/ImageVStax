@@ -37,6 +37,7 @@ import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -60,6 +61,9 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.slider.Slider
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -76,6 +80,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnHorizontal: MaterialButton
     private lateinit var btnVertical: MaterialButton
     private lateinit var btnGrid: MaterialButton
+    private lateinit var btnSubtitle: MaterialButton
     private lateinit var toggleFormat: MaterialButtonToggleGroup
     private lateinit var btnFormatJpg: MaterialButton
     private lateinit var btnFormatPng: MaterialButton
@@ -86,6 +91,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnParamGap: MaterialButton
     private lateinit var btnParamHeight: MaterialButton
     private lateinit var btnParamWidth: MaterialButton
+    private lateinit var btnParamCrop: MaterialButton
     private lateinit var btnParamQuality: MaterialButton
 
     private lateinit var btnStitch: MaterialButton
@@ -263,6 +269,7 @@ class MainActivity : AppCompatActivity() {
         btnHorizontal = findViewById(R.id.btnHorizontal)
         btnVertical = findViewById(R.id.btnVertical)
         btnGrid = findViewById(R.id.btnGrid)
+        btnSubtitle = findViewById(R.id.btnSubtitle)
         toggleFormat = findViewById(R.id.toggleFormat)
         btnFormatJpg = findViewById(R.id.btnFormatJpg)
         btnFormatPng = findViewById(R.id.btnFormatPng)
@@ -272,6 +279,7 @@ class MainActivity : AppCompatActivity() {
         btnParamGap = findViewById(R.id.btnParamGap)
         btnParamHeight = findViewById(R.id.btnParamHeight)
         btnParamWidth = findViewById(R.id.btnParamWidth)
+        btnParamCrop = findViewById(R.id.btnParamCrop)
         btnParamQuality = findViewById(R.id.btnParamQuality)
 
         btnStitch = findViewById(R.id.btnStitch)
@@ -289,6 +297,7 @@ class MainActivity : AppCompatActivity() {
         when (settings.stitchMode) {
             StitchEngine.Mode.VERTICAL -> btnVertical.isChecked = true
             StitchEngine.Mode.GRID -> btnGrid.isChecked = true
+            StitchEngine.Mode.SUBTITLE -> btnSubtitle.isChecked = true
             StitchEngine.Mode.HORIZONTAL -> btnHorizontal.isChecked = true
         }
         when (settings.outputFormat) {
@@ -333,6 +342,7 @@ class MainActivity : AppCompatActivity() {
             settings.stitchMode = when (checkedId) {
                 R.id.btnVertical -> StitchEngine.Mode.VERTICAL
                 R.id.btnGrid -> StitchEngine.Mode.GRID
+                R.id.btnSubtitle -> StitchEngine.Mode.SUBTITLE
                 else -> StitchEngine.Mode.HORIZONTAL
             }
             // 参数行里只保留当前模式用得上的按钮
@@ -396,6 +406,10 @@ class MainActivity : AppCompatActivity() {
                 onConfirm = { settings.customWidth = it; updateParamLabels() },
                 onReset = { settings.customWidth = 0; updateParamLabels() },
             )
+        }
+
+        btnParamCrop.setOnClickListener {
+            showCropDialog()
         }
 
         btnParamQuality.setOnClickListener {
@@ -479,6 +493,15 @@ class MainActivity : AppCompatActivity() {
         setParamLabel(btnParamGap, R.string.gap, getString(R.string.value_px, settings.gapPx))
         setParamLabel(btnParamHeight, R.string.height, formatAutoOrPx(settings.customHeight))
         setParamLabel(btnParamWidth, R.string.width, formatAutoOrPx(settings.customWidth))
+        setParamLabel(
+            btnParamCrop,
+            R.string.crop,
+            getString(
+                R.string.crop_value,
+                settings.subtitleCropStart,
+                settings.subtitleCropHeight,
+            ),
+        )
         setParamLabel(btnParamQuality, R.string.quality, settings.outputQuality.toString())
     }
 
@@ -489,7 +512,11 @@ class MainActivity : AppCompatActivity() {
         btnParamHeight.visibility =
             if (settings.stitchMode == StitchEngine.Mode.HORIZONTAL) View.VISIBLE else View.GONE
         btnParamWidth.visibility =
-            if (settings.stitchMode == StitchEngine.Mode.VERTICAL) View.VISIBLE else View.GONE
+            if (settings.stitchMode == StitchEngine.Mode.VERTICAL ||
+                settings.stitchMode == StitchEngine.Mode.SUBTITLE
+            ) View.VISIBLE else View.GONE
+        btnParamCrop.visibility =
+            if (settings.stitchMode == StitchEngine.Mode.SUBTITLE) View.VISIBLE else View.GONE
         btnParamQuality.visibility =
             if (settings.outputFormat.isLossy) View.VISIBLE else View.GONE
         // 间距三种模式都适用
@@ -554,6 +581,213 @@ class MainActivity : AppCompatActivity() {
             builder.setNeutralButton(R.string.auto) { _, _ -> onReset() }
         }
         builder.show()
+    }
+
+    /**
+     * 字幕裁切浮窗：上方实时拼接前几张图做效果预览，下方两个滑条调裁切范围。
+     *
+     * 预览只解码前 [PREVIEW_IMAGE_COUNT] 张、并按 [PREVIEW_WIDTH] 降采样；
+     * 拖动滑条时只重新组合这张小图，不重新读原图，所以能跟手刷新。
+     * 组合走的是与正式拼接同一段裁切代码，预览比例就是最终结果的比例。
+     *
+     * 两个滑条的取值范围互相牵制（起点 + 高度 <= 100%），拖动高度会同步收紧起点的上限
+     * 并把它压回合法值，避免出现「起点 70% + 高度 35%」这种越界组合。
+     */
+    private fun showCropDialog() {
+        val density = resources.displayMetrics.density
+        val padH = (24 * density).toInt()
+        val padTop = (8 * density).toInt()
+        val gap = (8 * density).toInt()
+
+        val initialStart = settings.subtitleCropStart
+        val initialHeight = settings.subtitleCropHeight
+
+        val secondaryColor = TypedValue().let { typed ->
+            if (theme.resolveAttribute(android.R.attr.textColorSecondary, typed, true)) {
+                if (typed.resourceId != 0) ContextCompat.getColor(this, typed.resourceId) else typed.data
+            } else {
+                Color.GRAY
+            }
+        }
+
+        val preview = TextView(this).apply {
+            textSize = 20f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(accentColor)
+            gravity = Gravity.CENTER
+        }
+
+        // 预览窗口：固定高度，内部按浮窗宽度铺满显示拼接结果。
+        // 拼接图整体很窄很高，按高度自适应会缩成一条细线，所以改成宽度铺满 + 纵向滚动，
+        // 并在首次生成时自动滚到「首图底部 / 第一条字幕」，直接看到要调的那一段。
+        val previewImage = ImageView(this).apply {
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        val previewBox = ScrollView(this).apply {
+            setBackgroundColor(0x22000000)
+            visibility = View.GONE
+            addView(
+                previewImage,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+        }
+
+        val previewLoading = TextView(this).apply {
+            setText(R.string.crop_preview_loading)
+            textSize = 12f
+            setTextColor(secondaryColor)
+            gravity = Gravity.CENTER
+            setPadding(0, (10 * density).toInt(), 0, (10 * density).toInt())
+            visibility = View.GONE
+        }
+
+        val startSlider = Slider(this).apply {
+            valueTo = (100 - initialHeight).toFloat()
+            valueFrom = 0f
+            stepSize = 1f
+            value = initialStart.toFloat()
+        }
+        val heightSlider = Slider(this).apply {
+            valueTo = AppSettings.CROP_HEIGHT_MAX.toFloat()
+            valueFrom = AppSettings.CROP_HEIGHT_MIN.toFloat()
+            stepSize = 1f
+            value = initialHeight.toFloat()
+        }
+
+        // 预览源图（只取前几张）与最近一次合成任务；浮窗关闭后置为 released 停止回写
+        val previewSources = mutableListOf<Bitmap>()
+        var previewJob: Job? = null
+        var released = false
+        var autoScrolled = false
+
+        fun requestPreview() {
+            if (previewSources.size < 2) return
+            previewJob?.cancel()
+            previewJob = lifecycleScope.launch {
+                // 拖动时事件很密集，稍作防抖，避免每一帧都重画一遍
+                delay(PREVIEW_DEBOUNCE_MS)
+                val start = startSlider.value.toInt()
+                val height = heightSlider.value.toInt()
+                val bitmap = withContext(Dispatchers.Default) {
+                    StitchEngine.composeSubtitlePreview(
+                        previewSources, PREVIEW_WIDTH, start, height
+                    )
+                }
+                if (bitmap == null || released || !isActive) return@launch
+                previewImage.setImageBitmap(bitmap)
+                previewBox.visibility = View.VISIBLE
+                previewLoading.visibility = View.GONE
+
+                // 只在第一次生成时滚到字幕条：之后拖动只改裁切高度，字幕条上沿位置不变，
+                // 反复回滚反而会打断用户自己滚动查看
+                if (!autoScrolled) {
+                    previewImage.post {
+                        if (released || previewImage.height <= 0) return@post
+                        val first = previewSources.first()
+                        val firstPieceHeight = bitmap.width * first.height.toFloat() / first.width
+                        val scale = previewImage.height.toFloat() / bitmap.height
+                        val offset = firstPieceHeight * scale - previewBox.height * 0.35f
+                        previewBox.scrollTo(0, offset.toInt().coerceAtLeast(0))
+                        autoScrolled = true
+                    }
+                }
+            }
+        }
+
+        fun refreshPreview() {
+            val start = startSlider.value.toInt()
+            preview.text = getString(
+                R.string.crop_summary, start, start + heightSlider.value.toInt()
+            )
+            requestPreview()
+        }
+
+        startSlider.addOnChangeListener { _, _, _ -> refreshPreview() }
+        heightSlider.addOnChangeListener { _, v, _ ->
+            val maxStart = 100 - v.toInt()
+            // 先把当前值压回新上限，再收紧 valueTo；顺序反了滑条会因为值越界抛异常
+            if (startSlider.value > maxStart) startSlider.value = maxStart.toFloat()
+            startSlider.valueTo = maxStart.toFloat()
+            refreshPreview()
+        }
+        refreshPreview()
+
+        val previewUris = imageUris.take(PREVIEW_IMAGE_COUNT).toList()
+        if (previewUris.size >= 2) {
+            previewLoading.visibility = View.VISIBLE
+            lifecycleScope.launch {
+                val loaded = withContext(Dispatchers.IO) {
+                    previewUris.mapNotNull {
+                        StitchEngine.decodeSampled(this@MainActivity, it, PREVIEW_WIDTH)
+                    }
+                }
+                if (released) return@launch
+                previewSources.addAll(loaded)
+                if (previewSources.size < 2) {
+                    previewLoading.visibility = View.GONE
+                    return@launch
+                }
+                requestPreview()
+            }
+        }
+
+        fun caption(resId: Int): TextView = TextView(this).apply {
+            setText(resId)
+            textSize = 13f
+            setTextColor(secondaryColor)
+        }
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padH, padTop, padH, 0)
+        }
+        fun add(
+            view: View,
+            topMargin: Int,
+            height: Int = LinearLayout.LayoutParams.WRAP_CONTENT,
+        ) {
+            container.addView(
+                view,
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, height)
+                    .apply { this.topMargin = topMargin },
+            )
+        }
+
+        add(preview, 0)
+        add(previewBox, gap, (PREVIEW_BOX_HEIGHT_DP * density).toInt())
+        add(previewLoading, 0)
+        add(caption(R.string.crop_start), gap)
+        add(startSlider, 0)
+        add(caption(R.string.crop_height), gap)
+        add(heightSlider, 0)
+        add(
+            TextView(this).apply {
+                setText(R.string.crop_hint)
+                textSize = 12f
+                setTextColor(secondaryColor)
+            },
+            gap,
+        )
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.crop)
+            .setView(container)
+            .setPositiveButton(R.string.ok) { _, _ ->
+                // 先写高度：起点的上限依赖它，反过来会把起点截到旧上限
+                settings.subtitleCropHeight = heightSlider.value.toInt()
+                settings.subtitleCropStart = startSlider.value.toInt()
+                updateParamLabels()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .setOnDismissListener {
+                released = true
+                previewJob?.cancel()
+            }
+            .show()
     }
 
     private fun handleSendIntent(intent: Intent?) {
@@ -625,6 +859,8 @@ class MainActivity : AppCompatActivity() {
         val gap = settings.gapPx
         val height = settings.customHeight
         val width = settings.customWidth
+        val cropStart = settings.subtitleCropStart
+        val cropHeight = settings.subtitleCropHeight
 
         btnStitch.text = getString(R.string.stitch_running)
         btnStitch.isEnabled = false
@@ -640,6 +876,8 @@ class MainActivity : AppCompatActivity() {
                         gap,
                         height,
                         width,
+                        cropStart,
+                        cropHeight,
                     )
                 } catch (e: Exception) {
                     null
@@ -710,5 +948,19 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             null
         }
+    }
+
+    private companion object {
+        /** 裁切预览只用前几张图：足够看出效果，又不必为一次拖动解码整个列表 */
+        const val PREVIEW_IMAGE_COUNT = 3
+
+        /** 预览位图的目标宽度（px）。按此宽度降采样，显示时再按屏幕缩放 */
+        const val PREVIEW_WIDTH = 480
+
+        /** 预览窗口高度（dp）。内部按浮窗宽度铺满，超出部分纵向滚动 */
+        const val PREVIEW_BOX_HEIGHT_DP = 200
+
+        /** 拖动滑条时的防抖间隔，避免每一帧都重新合成 */
+        const val PREVIEW_DEBOUNCE_MS = 90L
     }
 }

@@ -1,6 +1,6 @@
 # ImageVStax
 
-An Android app for stitching images together — horizontally, vertically, or in a grid layout.
+An Android app for stitching images together — horizontally, vertically, in a grid, or as a movie-subtitle strip.
 
 [简体中文](README.md) | **English**
 
@@ -8,13 +8,14 @@ An Android app for stitching images together — horizontally, vertically, or in
 
 - **Pick images** from the file manager via system document picker
 - **Share to ImageVStax** — receive images from any app via Android's share sheet (`ACTION_SEND` / `ACTION_SEND_MULTIPLE`)
-- **Three stitch modes**:
+- **Four stitch modes**:
   - **Horizontal** — arrange images left to right, with optional custom height
   - **Vertical** — arrange images top to bottom, with optional custom width
   - **Grid** — arrange images in a configurable column grid
+  - **Movie subtitle** — the first image is shown in full, while every following image contributes only the same cropped subtitle band (start 0–95%, height 5–35%), stacked below it — handy for turning a film's dialogue screenshots into one long strip; the crop dialog stitches the first few images live so you can see the result while adjusting
 - **Image management** — reorder (move up/down), remove individual images
 - **Gap control** — adjustable spacing between images (0–50 px)
-- **Compact parameter bar** — gap / height / width / columns / quality each get one button showing its current value; tap to adjust with a slider
+- **Compact parameter bar** — gap / height / width / columns / crop / quality each get one button showing its current value; tap to adjust with a slider
 - **Remembers your settings** — stitch mode, output format and all parameters are saved automatically and restored next launch
 - **Output format** — choose **JPG** (smallest), **PNG** (lossless, keeps transparency), or **WEBP** (best size-to-quality ratio) when saving or sharing; JPG / WEBP quality is adjustable (60–100)
 - **Save** stitched result to gallery (`Pictures/ImageVStax`)

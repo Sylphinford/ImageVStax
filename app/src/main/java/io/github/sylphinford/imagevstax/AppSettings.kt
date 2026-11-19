@@ -68,6 +68,24 @@ class AppSettings(context: Context) {
         set(value) = prefs.edit()
             .putInt(KEY_QUALITY, value.coerceIn(QUALITY_MIN, QUALITY_MAX)).apply()
 
+    /**
+     * 字幕模式：从第 2 张起的裁切起点（图片高度的百分比）。
+     *
+     * 上限不是固定值，而是 `100 - 裁切高度`，保证起点与高度之和不超过整张图。
+     */
+    var subtitleCropStart: Int
+        get() = prefs.getInt(KEY_CROP_START, DEFAULT_CROP_START)
+            .coerceIn(0, 100 - subtitleCropHeight)
+        set(value) = prefs.edit()
+            .putInt(KEY_CROP_START, value.coerceIn(0, 100 - subtitleCropHeight)).apply()
+
+    /** 字幕模式：从第 2 张起的裁切高度（图片高度的百分比）。 */
+    var subtitleCropHeight: Int
+        get() = prefs.getInt(KEY_CROP_HEIGHT, DEFAULT_CROP_HEIGHT)
+            .coerceIn(CROP_HEIGHT_MIN, CROP_HEIGHT_MAX)
+        set(value) = prefs.edit()
+            .putInt(KEY_CROP_HEIGHT, value.coerceIn(CROP_HEIGHT_MIN, CROP_HEIGHT_MAX)).apply()
+
     /** 清空全部已保存设置，回到默认值。 */
     fun reset() = prefs.edit().clear().apply()
 
@@ -81,6 +99,8 @@ class AppSettings(context: Context) {
         private const val KEY_HEIGHT = "custom_height"
         private const val KEY_WIDTH = "custom_width"
         private const val KEY_QUALITY = "output_quality"
+        private const val KEY_CROP_START = "subtitle_crop_start"
+        private const val KEY_CROP_HEIGHT = "subtitle_crop_height"
 
         // 参数范围集中在这里，滑条与存储共用，避免两处各写一份
         const val COLUMNS_MIN = 2
@@ -90,9 +110,13 @@ class AppSettings(context: Context) {
         const val SIZE_MAX = 4096
         const val QUALITY_MIN = 60
         const val QUALITY_MAX = 100
+        const val CROP_HEIGHT_MIN = 5
+        const val CROP_HEIGHT_MAX = 35
 
         private const val DEFAULT_COLUMNS = 2
         private const val DEFAULT_GAP = 0
         private const val DEFAULT_QUALITY = 95
+        private const val DEFAULT_CROP_START = 65
+        private const val DEFAULT_CROP_HEIGHT = 30
     }
 }
